@@ -20,6 +20,7 @@ contract Lottery is VRFConsumerBase, Ownable {
     LOTTERY_STATE public lottery_state;
     uint256 public fee;
     bytes32 public keyhash;
+    event RequestdRandomness(bytes32 requestId);
 
     // 0
     // 1
@@ -42,13 +43,13 @@ contract Lottery is VRFConsumerBase, Ownable {
     function enter() public payable {
         // mimimum $50
         require(lottery_state == LOTTERY_STATE.OPEN);
-        require(msg.value >= getEntrenceFee(), "Not enough ETH!");
+        require(msg.value >= getEntranceFee(), "Not enough ETH!");
         players.push(msg.sender);
     }
 
-    function getEntrenceFee() public view returns (uint256) {
+    function getEntranceFee() public view returns (uint256) {
         (, int256 price, , , ) = ethUdsPriceFeed.latestRoundData();
-        uint256 ajustedPrice = uint256(price);
+        uint256 ajustedPrice = uint256(price) * (10**10);
         uint256 costToEnter = (usdEntryFee * 10**18) / ajustedPrice;
         return costToEnter;
     }
@@ -74,6 +75,7 @@ contract Lottery is VRFConsumerBase, Ownable {
         // ) % player.length;
         lottery_state = LOTTERY_STATE.CALCULATING_WINNER;
         bytes32 requestId = requestRandomness(keyhash, fee);
+        emit RequestdRandomness(requestId);
     }
 
     function fulfillRandomness(bytes32 _requestId, uint256 _randomness)
@@ -88,7 +90,7 @@ contract Lottery is VRFConsumerBase, Ownable {
         uint256 indexOfWinner = _randomness % players.length;
         recentWinner = players[indexOfWinner];
         recentWinner.transfer(address(this).balance);
-        // Reset 
+        // Reset
         players = new address payable[](0);
         lottery_state = LOTTERY_STATE.CLOSED;
         randomness = _randomness;
